@@ -9,6 +9,10 @@ import (
 const dbName = "tracker.db"
 
 func getDb() (*sql.DB, error) {
+	if err := setupDatabase(); err != nil {
+		return nil, err
+	}
+
 	db, err := sql.Open("sqlite3", dbName)
 	if err != nil {
 		return nil, err
