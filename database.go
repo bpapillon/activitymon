@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"os"
 )
 
 const dbName = "tracker.db"
@@ -30,9 +29,9 @@ func insertActivity(db *sql.DB, timestamp, appName, windowTitle, url string) err
 }
 
 func setupDatabase() error {
-	if _, err := os.Stat(dbName); err == nil {
-		fmt.Println("Database exists")
-	}
+	// if _, err := os.Stat(dbName); err != nil {
+	// 	fmt.Println("Database exists")
+	// }
 
 	db, err := sql.Open("sqlite3", dbName)
 	if err != nil {
@@ -53,6 +52,5 @@ func setupDatabase() error {
 		return fmt.Errorf("error creating table: %v", err)
 	}
 
-	fmt.Println("table exists")
 	return nil
 }

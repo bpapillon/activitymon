@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fatih/color"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli/v2"
@@ -16,6 +17,7 @@ import (
 const (
 	MaxGap            = 10 * time.Minute
 	MaxActivityLength = 50
+	BarChartWidth     = 50
 )
 
 type Activity struct {
@@ -51,7 +53,7 @@ func processActivities(results [][]interface{}) (map[string]time.Duration, time.
 		url := row[4].(string)
 
 		activity := url
-		if appName != "Brave Browser" && appName != "Google Chrome" && appName != "Safari" && appName != "Firefox" {
+		if url == "" {
 			activity = appName
 		}
 		if strings.HasPrefix(activity, "http") {
@@ -141,12 +143,19 @@ func summarize(c *cli.Context) error {
 		results = append(results, []interface{}{id, timestamp, appName, windowTitle, url})
 	}
 
+	if len(results) == 0 {
+		color.Yellow("No activity data found for the last %d %s\n", timeValue, timeUnit)
+		return nil
+	}
+
 	activitySummary, totalDuration, gaps := processActivities(results)
 
 	fmt.Printf("Activity Summary for the last %d %s\n\n", timeValue, timeUnit)
 
+	color.Cyan("🕒 Activity Summary for the last %d %s\n\n", timeValue, timeUnit)
+
 	if len(results) > 0 {
-		fmt.Printf("Data range: %s to %s\n", results[0][1].(time.Time).Format("2006-01-02 15:04:05"), results[len(results)-1][1].(time.Time).Format("2006-01-02 15:04:05"))
+		color.Yellow("📅 Data range: %s to %s\n", results[0][1].(time.Time).Format("2006-01-02 15:04:05"), results[len(results)-1][1].(time.Time).Format("2006-01-02 15:04:05"))
 	}
 
 	requestedDuration := timeDelta
@@ -154,29 +163,32 @@ func summarize(c *cli.Context) error {
 
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"Metric", "Duration"})
+	table.SetBorder(false)
+	table.SetColumnSeparator("│")
+	table.SetCenterSeparator("─")
+	table.SetHeaderColor(tablewriter.Colors{tablewriter.FgHiCyanColor}, tablewriter.Colors{tablewriter.FgHiCyanColor})
+	table.SetColumnColor(tablewriter.Colors{tablewriter.FgYellowColor}, tablewriter.Colors{tablewriter.FgGreenColor})
+
 	table.Append([]string{"Total tracked time", formatTime(totalDuration)})
 	table.Append([]string{"Requested duration", timeDelta.String()})
 	table.Append([]string{"Total gap time", formatTime(totalGapTime)})
 	table.Render()
 
 	coveragePercentage := float64(totalDuration) / float64(requestedDuration) * 100
-	fmt.Printf("\nTracking coverage: %.2f%%\n", coveragePercentage)
+	color.Green("\n📊 Tracking coverage: %.2f%%\n", coveragePercentage)
 
 	if len(gaps) > 0 {
-		fmt.Printf("\nDetected gaps within tracked time: %d\n", len(gaps))
-		fmt.Println("Largest gaps within tracked time:")
+		color.Yellow("\n⚠️  Detected gaps within tracked time: %d\n", len(gaps))
+		color.Yellow("Largest gaps within tracked time:")
 		sort.Slice(gaps, func(i, j int) bool {
 			return gaps[i][2].(time.Duration) > gaps[j][2].(time.Duration)
 		})
 		for i, gap := range gaps[:min(5, len(gaps))] {
-			fmt.Printf("  %d. From %s to %s (%s)\n", i+1, gap[0].(time.Time).Format("2006-01-02 15:04:05"), gap[1].(time.Time).Format("2006-01-02 15:04:05"), formatTime(gap[2].(time.Duration)))
+			color.Yellow("  %d. From %s to %s (%s)", i+1, gap[0].(time.Time).Format("2006-01-02 15:04:05"), gap[1].(time.Time).Format("2006-01-02 15:04:05"), formatTime(gap[2].(time.Duration)))
 		}
 	}
 
-	fmt.Println("\nTop activities (% of tracked time, excluding sleep):")
-	activityTable := tablewriter.NewWriter(os.Stdout)
-	activityTable.SetHeader([]string{"Activity", "Duration", "Percentage"})
-
+	color.Cyan("\n🏆 Top activities (% of tracked time):\n")
 	var activities []Activity
 	for activity, duration := range activitySummary {
 		if activity != "loginwindow" {
@@ -188,17 +200,23 @@ func summarize(c *cli.Context) error {
 		return activities[i].Duration > activities[j].Duration
 	})
 
+	maxDuration := activities[0].Duration
 	for _, activity := range activities {
 		percentage := float64(activity.Duration) / float64(totalDuration) * 100
 		if percentage > 0.5 {
-			activityTable.Append([]string{
-				truncateString(activity.Name, MaxActivityLength),
-				formatTime(activity.Duration),
-				fmt.Sprintf("%.2f%%", percentage),
-			})
+			barLength := int(float64(activity.Duration) / float64(maxDuration) * BarChartWidth)
+			bar := strings.Repeat("█", barLength) + strings.Repeat("░", BarChartWidth-barLength)
+			color.Set(color.FgHiBlue)
+			fmt.Printf("%-30s", truncateString(activity.Name, 30))
+			color.Set(color.FgHiYellow)
+			fmt.Printf(" %s ", formatTime(activity.Duration))
+			color.Set(color.FgHiGreen)
+			fmt.Printf("%5.2f%% ", percentage)
+			color.Set(color.FgHiMagenta)
+			fmt.Println(bar)
+			color.Unset()
 		}
 	}
-	activityTable.Render()
 
 	sleepTime := time.Duration(0)
 	for _, gap := range gaps {
@@ -206,7 +224,7 @@ func summarize(c *cli.Context) error {
 			sleepTime += gap[2].(time.Duration)
 		}
 	}
-	fmt.Printf("\nNote: Your device was likely asleep or locked for approximately %s.\n", formatTime(sleepTime))
+	color.HiBlue("\n💤 Note: Your device was likely asleep or locked for approximately %s.\n", formatTime(sleepTime))
 
 	return nil
 }
