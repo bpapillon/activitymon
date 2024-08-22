@@ -136,8 +136,7 @@ func summarize(c *cli.Context) error {
 		var id int
 		var timestamp time.Time
 		var appName, windowTitle, url string
-		err := rows.Scan(&id, &timestamp, &appName, &windowTitle, &url)
-		if err != nil {
+		if err := rows.Scan(&id, &timestamp, &appName, &windowTitle, &url); err != nil {
 			return fmt.Errorf("error scanning row: %v", err)
 		}
 		results = append(results, []interface{}{id, timestamp, appName, windowTitle, url})
@@ -217,14 +216,6 @@ func summarize(c *cli.Context) error {
 			color.Unset()
 		}
 	}
-
-	sleepTime := time.Duration(0)
-	for _, gap := range gaps {
-		if gap[2].(time.Duration) > MaxGap {
-			sleepTime += gap[2].(time.Duration)
-		}
-	}
-	color.HiBlue("\n💤 Note: Your device was likely asleep or locked for approximately %s.\n", formatTime(sleepTime))
 
 	return nil
 }

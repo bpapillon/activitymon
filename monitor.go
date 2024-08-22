@@ -67,9 +67,9 @@ func monitor(c *cli.Context) error {
 	var lastAppName, lastWindowTitle, lastURL string
 	var lastInsertTime time.Time
 
-	for {
-		time.Sleep(100 * time.Millisecond) // Small delay before checking
+	time.Sleep(100 * time.Millisecond)
 
+	for {
 		currentTime := time.Now().Format("2006-01-02 15:04:05")
 		appName, windowTitle, url, err := getActiveWindowInfo()
 		if err != nil {
@@ -97,6 +97,6 @@ func monitor(c *cli.Context) error {
 			fmt.Println("No change detected")
 		}
 
-		time.Sleep(900 * time.Millisecond) // Adjust to maintain roughly 1 second interval
+		time.Sleep(1000 * time.Millisecond)
 	}
 }

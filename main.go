@@ -10,8 +10,8 @@ import (
 
 func main() {
 	app := &cli.App{
-		Name:  "Activity Tracker",
-		Usage: "Personal Activity Tracker CLI",
+		Name:  "activitymon",
+		Usage: "Simple activity tracker for Mac OS",
 		Commands: []*cli.Command{
 			{
 				Name:   "monitor",
@@ -20,7 +20,7 @@ func main() {
 			},
 			{
 				Name:  "summary",
-				Usage: "Provide a summary of activities for the specified time period",
+				Usage: "Output a summary of activities for the last N hours or minutes",
 				Flags: []cli.Flag{
 					&cli.IntFlag{
 						Name:  "hours",
