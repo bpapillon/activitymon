@@ -25,21 +25,18 @@ func insertActivity(db *sql.DB, timestamp, appName, windowTitle, url string) err
 		INSERT INTO activities (timestamp, app_name, window_title, url)
 		VALUES (?, ?, ?, ?)
 	`, timestamp, appName, windowTitle, url)
+
 	return err
 }
 
 func setupDatabase() error {
-	// if _, err := os.Stat(dbName); err != nil {
-	// 	fmt.Println("Database exists")
-	// }
-
 	db, err := sql.Open("sqlite3", dbName)
 	if err != nil {
 		return fmt.Errorf("error opening database: %v", err)
 	}
 	defer db.Close()
 
-	_, err = db.Exec(`
+	if _, err := db.Exec(`
 	CREATE TABLE IF NOT EXISTS activities (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -47,8 +44,7 @@ func setupDatabase() error {
 		window_title TEXT,
 		url TEXT
 	)
-	`)
-	if err != nil {
+	`); err != nil {
 		return fmt.Errorf("error creating table: %v", err)
 	}
 
