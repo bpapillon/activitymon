@@ -1,57 +1,101 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/urfave/cli/v2"
 )
 
-func monitor(c *cli.Context) error {
+func monitorCmd(c *cli.Context) error {
 	db, err := getDb()
 	if err != nil {
-		return err
+		return fmt.Errorf("error opening database: %v", err)
 	}
 	defer db.Close()
 
-	var lastAppName, lastWindowTitle, lastURL string
-	var lastInsertTime time.Time
+	// Clean up any unfinished activities from previous runs
+	if err := cleanupUnfinishedActivities(db); err != nil {
+		fmt.Printf("Error cleaning up unfinished activities: %v\n", err)
+	}
 
-	time.Sleep(100 * time.Millisecond)
+	// Create a context that we can cancel
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Set up signal handling
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+
+	// Start the monitor in a goroutine
+	errChan := make(chan error)
+	go func() {
+		errChan <- monitor(ctx, db)
+	}()
+
+	// Wait for either an error from monitor or a signal
+	select {
+	case err := <-errChan:
+		return err
+	case sig := <-signalChan:
+		fmt.Printf("Received signal: %v\n", sig)
+		cancel()
+		if err := endCurrentActivity(db, time.Now()); err != nil {
+			fmt.Printf("Error ending current activity: %v\n", err)
+		}
+		return nil
+	}
+}
+
+func monitor(ctx context.Context, db *sql.DB) error {
+	var lastAppName, lastDomain string
 
 	for {
-		currentTime := time.Now().Format("2006-01-02 15:04:05")
+		currentTime := time.Now()
 		appName, windowTitle, err := getAppAndWindow()
 		if err != nil {
 			fmt.Printf("Failed to get window info: %v. Retrying in 1 second...\n", err)
 			time.Sleep(time.Second)
 			continue
 		}
-		url, err := getBrowserUrl(appName)
+		domain, err := getBrowserDomain(appName)
 		if err != nil {
-			fmt.Printf("Failed to get URL info: %s\n", err)
+			fmt.Printf("Failed to get browser URL info: %s\n", err)
 		}
 
-		if appName != lastAppName ||
-			windowTitle != lastWindowTitle ||
-			url != lastURL ||
-			time.Since(lastInsertTime) >= time.Second {
+		if appName == "" && windowTitle == "" {
+			// Computer is likely asleep or locked
+			if lastAppName != "" {
+				if err := endCurrentActivity(db, currentTime); err != nil {
+					fmt.Println("Error ending current activity:", err)
+				}
+				lastAppName = ""
+				lastDomain = ""
+			}
+		} else if appName != lastAppName || domain != lastDomain {
+			// Activity has changed
+			if lastAppName != "" {
+				if err := endCurrentActivity(db, currentTime); err != nil {
+					fmt.Println("Error ending current activity:", err)
+				}
+			}
 
-			if err := insertActivity(db, currentTime, appName, windowTitle, url); err != nil {
+			if err := insertActivity(db, currentTime, appName, domain); err != nil {
 				fmt.Println("Error inserting activity:", err)
 			} else {
-				fmt.Printf("Inserted %s, %s, %s, %s\n", currentTime, appName, windowTitle, url)
+				fmt.Printf("Started activity: %s %s\n", appName, domain)
 			}
 
 			lastAppName = appName
-			lastWindowTitle = windowTitle
-			lastURL = url
-			lastInsertTime = time.Now()
-		} else {
-			fmt.Println("No change detected")
+			lastDomain = domain
 		}
 
-		time.Sleep(1000 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 	}
 }

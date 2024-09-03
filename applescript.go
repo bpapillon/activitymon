@@ -5,6 +5,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os/exec"
 	"strings"
 )
@@ -77,4 +78,27 @@ func getBrowserUrl(browser string) (string, error) {
 	}
 
 	return runAppleScript(script)
+}
+
+// Get the domain of a URL
+func getDomain(urlString string) string {
+	if urlString == "" {
+		return ""
+	}
+
+	parsedURL, err := url.Parse(urlString)
+	if err != nil {
+		return ""
+	}
+	return parsedURL.Hostname()
+}
+
+// Get the domain of the active tab in the browser
+func getBrowserDomain(browser string) (string, error) {
+	url, err := getBrowserUrl(browser)
+	if err != nil {
+		return "", err
+	}
+
+	return getDomain(url), nil
 }

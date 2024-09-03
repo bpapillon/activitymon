@@ -16,7 +16,7 @@ func main() {
 			{
 				Name:   "monitor",
 				Usage:  "Run the activity monitor",
-				Action: monitor,
+				Action: monitorCmd,
 			},
 			{
 				Name:  "summary",

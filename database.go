@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"time"
 )
 
 const dbName = "tracker.db"
@@ -20,11 +21,37 @@ func getDb() (*sql.DB, error) {
 	return db, nil
 }
 
-func insertActivity(db *sql.DB, timestamp, appName, windowTitle, url string) error {
+func insertActivity(db *sql.DB, startTime time.Time, appName, domain string) error {
 	_, err := db.Exec(`
-		INSERT INTO activities (timestamp, app_name, window_title, url)
-		VALUES (?, ?, ?, ?)
-	`, timestamp, appName, windowTitle, url)
+		INSERT INTO activities (start_time, app_name, domain)
+		VALUES (?, ?, ?)
+	`, startTime.Format("2006-01-02 15:04:05"), appName, domain)
+
+	return err
+}
+
+func endCurrentActivity(db *sql.DB, endTime time.Time) error {
+	_, err := db.Exec(`
+		UPDATE activities
+		SET end_time = ?
+		WHERE end_time IS NULL
+	`, endTime.Format("2006-01-02 15:04:05"))
+
+	return err
+}
+
+func cleanupUnfinishedActivities(db *sql.DB) error {
+	now := time.Now()
+	fiveMinutesAgo := now.Add(-5 * time.Minute)
+
+	_, err := db.Exec(`
+		UPDATE activities
+		SET end_time = CASE
+			WHEN start_time > ? THEN start_time
+			ELSE ?
+		END
+		WHERE end_time IS NULL
+	`, fiveMinutesAgo.Format("2006-01-02 15:04:05"), now.Format("2006-01-02 15:04:05"))
 
 	return err
 }
@@ -39,13 +66,19 @@ func setupDatabase() error {
 	if _, err := db.Exec(`
 	CREATE TABLE IF NOT EXISTS activities (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+		start_time DATETIME NOT NULL,
+		end_time DATETIME,
 		app_name TEXT NOT NULL,
-		window_title TEXT,
-		url TEXT
+		domain TEXT
 	)
 	`); err != nil {
 		return fmt.Errorf("error creating table: %v", err)
+	}
+
+	if _, err := db.Exec(`
+    CREATE INDEX IF NOT EXISTS idx_activities_start_time ON activities(start_time)
+    `); err != nil {
+		return fmt.Errorf("error creating index: %v", err)
 	}
 
 	return nil
