@@ -149,8 +149,6 @@ func summarize(c *cli.Context) error {
 
 	activitySummary, totalDuration, gaps := processActivities(results)
 
-	fmt.Printf("Activity Summary for the last %d %s\n\n", timeValue, timeUnit)
-
 	color.Cyan("🕒 Activity Summary for the last %d %s\n\n", timeValue, timeUnit)
 
 	if len(results) > 0 {
