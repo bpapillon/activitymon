@@ -20,18 +20,15 @@ func main() {
 			},
 			{
 				Name:  "summary",
-				Usage: "Output a summary of activities for the last N hours or minutes",
+				Usage: "Output a summary of activities",
 				Flags: []cli.Flag{
-					&cli.IntFlag{
-						Name:  "hours",
-						Usage: "Number of hours to summarize",
-					},
 					&cli.IntFlag{
 						Name:  "minutes",
 						Usage: "Number of minutes to summarize",
+						Value: 240,
 					},
 				},
-				Action: summarize,
+				Action: summaryCmd,
 			},
 		},
 	}

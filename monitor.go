@@ -86,10 +86,14 @@ func monitor(ctx context.Context, db *sql.DB) error {
 				}
 			}
 
-			if err := insertActivity(db, currentTime, appName, domain); err != nil {
+			activityName := appName
+			if domain != "" {
+				activityName = domain
+			}
+			if err := insertActivity(db, currentTime, activityName); err != nil {
 				fmt.Println("Error inserting activity:", err)
 			} else {
-				fmt.Printf("Started activity: %s %s\n", appName, domain)
+				fmt.Printf("Started activity: %s\n", activityName)
 			}
 
 			lastAppName = appName

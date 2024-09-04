@@ -21,11 +21,11 @@ func getDb() (*sql.DB, error) {
 	return db, nil
 }
 
-func insertActivity(db *sql.DB, startTime time.Time, appName, domain string) error {
+func insertActivity(db *sql.DB, startTime time.Time, activityName string) error {
 	_, err := db.Exec(`
-		INSERT INTO activities (start_time, app_name, domain)
-		VALUES (?, ?, ?)
-	`, startTime.Format("2006-01-02 15:04:05"), appName, domain)
+		INSERT INTO activities (start_time, activity_name)
+		VALUES (?, ?)
+	`, startTime.Format("2006-01-02 15:04:05"), activityName)
 
 	return err
 }
@@ -68,8 +68,7 @@ func setupDatabase() error {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		start_time DATETIME NOT NULL,
 		end_time DATETIME,
-		app_name TEXT NOT NULL,
-		domain TEXT
+		activity_name TEXT NOT NULL
 	)
 	`); err != nil {
 		return fmt.Errorf("error creating table: %v", err)

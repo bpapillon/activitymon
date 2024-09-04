@@ -37,46 +37,21 @@ func formatTime(d time.Duration) string {
 	return fmt.Sprintf("%dh %dm %ds", h, m, s)
 }
 
-func summarize(c *cli.Context) error {
-	hours := c.Int("hours")
-	minutes := c.Int("minutes")
-
-	if hours == 0 && minutes == 0 {
-		return fmt.Errorf("please specify either --hours or --minutes")
-	}
-	if hours != 0 && minutes != 0 {
-		return fmt.Errorf("please specify either --hours or --minutes, not both")
-	}
-
-	var timeDelta time.Duration
-	var timeUnit string
-	var timeValue int
-
-	if hours != 0 {
-		timeDelta = time.Duration(hours) * time.Hour
-		timeUnit = "hour(s)"
-		timeValue = hours
-	} else {
-		timeDelta = time.Duration(minutes) * time.Minute
-		timeUnit = "minute(s)"
-		timeValue = minutes
-	}
-
+func summaryCmd(c *cli.Context) error {
 	db, err := getDb()
 	if err != nil {
 		return fmt.Errorf("error connecting to database: %v", err)
 	}
 	defer db.Close()
 
+	minutes := c.Int("minutes")
+	timeDelta := time.Duration(minutes) * time.Minute
 	now := time.Now()
 	startTime := now.Add(-timeDelta)
 
 	query := `
 	SELECT
-		CASE
-			WHEN domain != '' THEN domain
-			ELSE app_name
-		END AS activity,
+    activity_name,
 		SUM(
 			JULIANDAY(
 				CASE
@@ -92,7 +67,7 @@ func summarize(c *cli.Context) error {
 		) * 86400 AS duration_seconds
 	FROM activities
 	WHERE start_time < ? AND (end_time > ? OR end_time IS NULL)
-	GROUP BY activity
+	GROUP BY activity_name
 	ORDER BY duration_seconds DESC
 	`
 
@@ -123,11 +98,11 @@ func summarize(c *cli.Context) error {
 	}
 
 	if len(activities) == 0 {
-		color.Yellow("No activity data found for the last %d %s\n", timeValue, timeUnit)
+		color.Yellow("No activity data found for the last %d minutes\n", minutes)
 		return nil
 	}
 
-	color.Cyan("🕒 Activity Summary for the last %d %s\n\n", timeValue, timeUnit)
+	color.Cyan("🕒 Activity Summary for the last %d minutes\n\n", minutes)
 
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"Metric", "Duration"})
@@ -166,4 +141,3 @@ func summarize(c *cli.Context) error {
 
 	return nil
 }
-
