@@ -61,6 +61,11 @@ func monitor(ctx context.Context, db *sql.DB) error {
 		appName, windowTitle, err := getAppAndWindow()
 		if err != nil {
 			fmt.Printf("Failed to get window info: %v. Retrying in 1 second...\n", err)
+			if err := endCurrentActivity(db, currentTime); err != nil {
+				fmt.Println("Error ending current activity:", err)
+			}
+			lastAppName = ""
+			lastDomain = ""
 			time.Sleep(time.Second)
 			continue
 		}
@@ -93,7 +98,7 @@ func monitor(ctx context.Context, db *sql.DB) error {
 			if err := insertActivity(db, currentTime, activityName); err != nil {
 				fmt.Println("Error inserting activity:", err)
 			} else {
-				fmt.Printf("Started activity: %s\n", activityName)
+				fmt.Printf("%s Started activity: %s\n", currentTime.Format("2006-01-02 15:04:05"), activityName)
 			}
 
 			lastAppName = appName

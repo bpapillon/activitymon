@@ -20,25 +20,6 @@ var browserUrlScripts = map[string]string{
 	"Safari":        "tell application \"Safari\" to set currentURL to URL of current tab of window 1",
 }
 
-// Run any AppleScript and return the output
-func runAppleScript(script string) (string, error) {
-	cmd := exec.Command("osascript", "-e", script)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("AppleScript error: %v, stderr: %s", err, stderr.String())
-	}
-
-	return strings.TrimSpace(stdout.String()), nil
-}
-
-type SystemStatus struct {
-	IsScreenSaverRunning bool `json:"isScreenSaverRunning"`
-	IsLocked             bool `json:"isLocked"`
-	IsAsleep             bool `json:"isAsleep"`
-}
-
 // Get the name of the frontmost application and the title of the frontmost window
 func getAppAndWindow() (string, string, error) {
 	// Check if display is asleep, screen saver is running, or the screen is locked
@@ -47,7 +28,11 @@ func getAppAndWindow() (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	var systemStatus SystemStatus
+	var systemStatus struct {
+		IsScreenSaverRunning bool `json:"isScreenSaverRunning"`
+		IsLocked             bool `json:"isLocked"`
+		IsAsleep             bool `json:"isAsleep"`
+	}
 	if err := json.Unmarshal([]byte(sleepStr), &systemStatus); err != nil {
 		return "", "", err
 	}
@@ -68,6 +53,16 @@ func getAppAndWindow() (string, string, error) {
 	}
 
 	return appName, windowTitle, nil
+}
+
+// Get the domain of the active tab in the browser
+func getBrowserDomain(browser string) (string, error) {
+	url, err := getBrowserUrl(browser)
+	if err != nil {
+		return "", err
+	}
+
+	return getDomain(url), nil
 }
 
 // Get the URL of the active tab in the browser
@@ -93,12 +88,15 @@ func getDomain(urlString string) string {
 	return parsedURL.Hostname()
 }
 
-// Get the domain of the active tab in the browser
-func getBrowserDomain(browser string) (string, error) {
-	url, err := getBrowserUrl(browser)
-	if err != nil {
-		return "", err
+// Run any AppleScript and return the output
+func runAppleScript(script string) (string, error) {
+	cmd := exec.Command("osascript", "-e", script)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("AppleScript error: %v, stderr: %s", err, stderr.String())
 	}
 
-	return getDomain(url), nil
+	return strings.TrimSpace(stdout.String()), nil
 }

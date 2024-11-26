@@ -8,6 +8,32 @@ import (
 
 const dbName = "tracker.db"
 
+func cleanupUnfinishedActivities(db *sql.DB) error {
+	now := time.Now()
+	fiveMinutesAgo := now.Add(-5 * time.Minute)
+
+	_, err := db.Exec(`
+		UPDATE activities
+		SET end_time = CASE
+			WHEN start_time > ? THEN start_time
+			ELSE ?
+		END
+		WHERE end_time IS NULL
+	`, fiveMinutesAgo.Format("2006-01-02 15:04:05"), now.Format("2006-01-02 15:04:05"))
+
+	return err
+}
+
+func endCurrentActivity(db *sql.DB, endTime time.Time) error {
+	_, err := db.Exec(`
+		UPDATE activities
+		SET end_time = ?
+		WHERE end_time IS NULL
+	`, endTime.Format("2006-01-02 15:04:05"))
+
+	return err
+}
+
 func getDb() (*sql.DB, error) {
 	if err := setupDatabase(); err != nil {
 		return nil, err
@@ -26,32 +52,6 @@ func insertActivity(db *sql.DB, startTime time.Time, activityName string) error 
 		INSERT INTO activities (start_time, activity_name)
 		VALUES (?, ?)
 	`, startTime.Format("2006-01-02 15:04:05"), activityName)
-
-	return err
-}
-
-func endCurrentActivity(db *sql.DB, endTime time.Time) error {
-	_, err := db.Exec(`
-		UPDATE activities
-		SET end_time = ?
-		WHERE end_time IS NULL
-	`, endTime.Format("2006-01-02 15:04:05"))
-
-	return err
-}
-
-func cleanupUnfinishedActivities(db *sql.DB) error {
-	now := time.Now()
-	fiveMinutesAgo := now.Add(-5 * time.Minute)
-
-	_, err := db.Exec(`
-		UPDATE activities
-		SET end_time = CASE
-			WHEN start_time > ? THEN start_time
-			ELSE ?
-		END
-		WHERE end_time IS NULL
-	`, fiveMinutesAgo.Format("2006-01-02 15:04:05"), now.Format("2006-01-02 15:04:05"))
 
 	return err
 }
