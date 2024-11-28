@@ -30,6 +30,7 @@ func main() {
 				},
 				Action: summaryCmd,
 			},
+			configCmd(),
 		},
 	}
 
