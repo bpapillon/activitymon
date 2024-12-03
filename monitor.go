@@ -48,6 +48,7 @@ func monitorCmd(c *cli.Context) error {
 }
 
 func monitor(ctx context.Context, db *DB) error {
+	startTime := time.Now()
 	display := NewMonitor()
 	if err := display.Start(); err != nil {
 		return err
@@ -118,7 +119,13 @@ func monitor(ctx context.Context, db *DB) error {
 			}
 
 		case <-statsTicker.C:
-			stats, err := getLatestStats(db)
+			// show stats since the start of the session, up to 12 hours
+			minStartTime := startTime.Add(-12 * time.Hour)
+			if startTime.Before(minStartTime) {
+				startTime = minStartTime
+			}
+
+			stats, err := getLatestStats(db, startTime)
 			if err != nil {
 				display.AddLogEntry(fmt.Sprintf("[red]Error updating stats: %v[white]", err))
 				continue

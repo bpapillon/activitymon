@@ -26,11 +26,9 @@ type SummaryData struct {
 	TimePeriod    time.Duration
 }
 
-// getSummaryData retrieves activity data from the database
-func getSummaryData(db *DB, minutes int) (*SummaryData, error) {
-	timeDelta := time.Duration(minutes) * time.Minute
+func getSummaryData(db *DB, startTime time.Time) (*SummaryData, error) {
 	now := time.Now()
-	startTime := now.Add(-timeDelta)
+	timeDelta := now.Sub(startTime)
 
 	var query string
 	if db.dbType == "postgres" {
@@ -159,7 +157,8 @@ func summaryCmd(c *cli.Context) error {
 	}
 	defer db.Close()
 
-	data, err := getSummaryData(db, c.Int("minutes"))
+	startTime := time.Now().Add(-time.Duration(-1*c.Int("minutes")) * time.Minute)
+	data, err := getSummaryData(db, startTime)
 	if err != nil {
 		return err
 	}
@@ -168,8 +167,8 @@ func summaryCmd(c *cli.Context) error {
 	return nil
 }
 
-func getLatestStats(db *DB) (string, error) {
-	data, err := getSummaryData(db, 240) // Default to last 4 hours
+func getLatestStats(db *DB, startTime time.Time) (string, error) {
+	data, err := getSummaryData(db, startTime)
 	if err != nil {
 		return "", err
 	}
