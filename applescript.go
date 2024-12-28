@@ -23,8 +23,7 @@ var browserUrlScripts = map[string]string{
 // Get the name of the frontmost application and the title of the frontmost window
 func getAppAndWindow() (string, string, error) {
 	// Check if display is asleep, screen saver is running, or the screen is locked
-	data, _ := scripts.ReadFile("scripts/sleep.scpt")
-	sleepStr, err := runAppleScript(string(data))
+	sleepStr, err := runAppleScriptTemplate("sleep")
 	if err != nil {
 		return "", "", err
 	}
@@ -47,7 +46,7 @@ func getAppAndWindow() (string, string, error) {
 	}
 
 	// Get title of the frontmost window
-	windowTitle, err := runAppleScript(fmt.Sprintf(`tell application "System Events" to tell process "%s" to get name of front window`, appName))
+	windowTitle, err := runAppleScriptTemplate("window", appName)
 	if err != nil {
 		return "", "", err
 	}
@@ -99,4 +98,18 @@ func runAppleScript(script string) (string, error) {
 	}
 
 	return strings.TrimSpace(stdout.String()), nil
+}
+
+func runAppleScriptTemplate(scriptName string, a ...any) (string, error) {
+	scriptBytes, err := scripts.ReadFile("scripts/" + scriptName + ".scpt")
+	if err != nil {
+		return "", err
+	}
+
+	script := string(scriptBytes)
+	if len(a) > 0 {
+		script = fmt.Sprintf(script, a...)
+	}
+
+	return runAppleScript(script)
 }
